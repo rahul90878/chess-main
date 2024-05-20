@@ -16,7 +16,7 @@ console.log(turndata,"oooooooooooooo");
 export const initGameState = {
 
     position : [createPosition()],
-    turn : turndata?.nextPlayerColour,
+    turn : 'w',
     candidateMoves : [],
     movesList : [],
 

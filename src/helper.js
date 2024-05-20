@@ -31,7 +31,7 @@ export const createPosition = () => {
 
     
 
-    return initialPosition?.createPosition
+    return position
 }
 
 export const copyPosition = position => {

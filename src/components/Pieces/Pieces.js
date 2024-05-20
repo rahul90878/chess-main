@@ -1,6 +1,6 @@
 import './Pieces.css'
 import Piece from './Piece'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAppContext } from '../../contexts/Context'
 import { openPromotion } from '../../reducer/actions/popup'
 import { getCastlingDirections } from '../../arbiter/getMoves'
@@ -10,7 +10,7 @@ import { makeNewMove, clearCandidates } from '../../reducer/actions/move'
 import arbiter from '../../arbiter/arbiter'
 import { getNewMoveNotation } from '../../helper'
 import socket from '../../socket'
-import { startGame } from '../../utils/InitialTurn'
+import { PlayerId, PlayerTurn, startGame } from '../../utils/InitialTurn'
 
 
 
@@ -18,15 +18,27 @@ const Pieces = () => {
 
     const { appState, dispatch } = useAppContext();
     const currentPosition = appState.position[appState.position.length - 1]
-    const playerId = localStorage.getItem('playerId')
     const RoomId = localStorage.getItem('RoomId')
     const [position, setPosition] = useState([])
-    const initialPosition=startGame();
+    const initialPosition = startGame();
+    const [newposition, setNewPosition] = useState();
+    const [newmove, setNewMove] = useState();
+
+    const playerData = startGame();
+    const playerturn = PlayerTurn();
+    const nextPlayerId = playerturn?.nextPlayerId;
+    const [playernextId, setPlayerNextId] = useState(playerData?.nextPlayerTurn);
+    const playerId = PlayerId();
+
+
+  
+
 
     const ref = useRef()
-    useEffect(() => {
+    useMemo(() => {
         setPosition(initialPosition?.createPosition)
     }, [])
+ 
     console.log('position', position);
     const updateCastlingState = ({ piece, file, rank }) => {
         const direction = getCastlingDirections({
@@ -58,23 +70,6 @@ const Pieces = () => {
         return { x, y }
     }
 
-    const gamestart = () => {
-        console.log("socket called");
-        //socket implement
-        // socket.on('nextplayerTurn', data => {
-        //     console.log('Next player:', data);
-
-        // });
-
-        socket.emit('doardData', { roomId: RoomId, playerId: playerId, doardData: { currentPosition }, });
-        // socket.on('receive_doardData', data => {
-        //     console.log(data, "jjjjjjjjjjj");
-        //     setPosition(data?.currentPosition)
-        //     // dispatch(currentPosition(data))
-
-        // })
-        // end socket
-    }
 
     const move = e => {
         const { x, y } = calculateCoords(e)
@@ -92,7 +87,7 @@ const Pieces = () => {
                 updateCastlingState({ piece, file, rank })
             }
             const newPosition = arbiter.performMove({
-                position: currentPosition,
+                position: position,
                 piece, rank, file,
                 x, y
             })
@@ -102,11 +97,17 @@ const Pieces = () => {
                 file,
                 x,
                 y,
-                position: currentPosition,
+                position: position,
             })
+            setNewMove(newMove)
+            setNewPosition(newPosition)
             dispatch(makeNewMove({ newPosition, newMove }))
+            socket.emit('doardData', { roomId: RoomId, playerId: playerId, doardData: { newPosition }, });
+            console.log(newPosition, "new position");
 
-       
+            console.log(newMove, "new move");
+
+
             if (arbiter.insufficientMaterial(newPosition))
                 dispatch(detectInsufficientMaterial())
             else if (arbiter.isStalemate(newPosition, opponent, castleDirection)) {
@@ -124,8 +125,7 @@ const Pieces = () => {
         e.preventDefault()
 
         move(e)
-        gamestart();
-     
+
 
     }
 
@@ -137,13 +137,14 @@ const Pieces = () => {
     }
     socket.on('receive_doardData', data => {
         console.log(data, "jjjjjjjjjjj");
-        setPosition(data?.currentPosition)
+        setPosition(data?.newPosition)
+        localStorage.setItem('newPosition', JSON.stringify(data))
         // dispatch(currentPosition(data))
 
     })
     socket.on('nextplayerTurn', data => {
         console.log('Next player:', data);
-        localStorage.setItem('nextplayerTurn',JSON.stringify(data))
+        localStorage.setItem('nextplayerTurn', JSON.stringify(data))
 
     });
     return <div
@@ -151,14 +152,14 @@ const Pieces = () => {
         ref={ref}
         onDrop={onDrop}
         onDragOver={onDragOver} >
-        {position.map((r, rank) =>
+        {(position ? position : currentPosition).map((r, rank) =>
             r.map((f, file) =>
-                position[rank][file]
+                (position ? position : currentPosition)[rank][file]
                     ? <Piece
                         key={rank + '-' + file}
                         rank={rank}
                         file={file}
-                        piece={position[rank][file]}
+                        piece={(position ? position : currentPosition)[rank][file]}
                     />
                     : null
             )

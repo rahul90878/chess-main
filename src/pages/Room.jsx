@@ -49,7 +49,7 @@ const navigate=useNavigate()
    
     
     socket.on('updatedRoom', data => {
-        console.log('Received updated room data:',data?._id);
+        console.log('Received updated room data:',data);
         localStorage.setItem("RoomId",data?._id)
         // dispatch(updatedRoom(data))
        
